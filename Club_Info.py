@@ -1,70 +1,80 @@
 import pygame
-import sys
 
-# Initialize Pygame
-pygame.init()
+# Display settings
+MESSAGE = "Hi! I'm at another club right now but feel free to sign up!"
+FONT_SIZE = 100
+SCROLL_SPEED = 120  # pixels per second
+FADE_SPEED = 60  # brightness steps per second (0-255 range)
+FRAME_RATE = 60
 
-# Get the screen dimensions
-screen_info = pygame.display.Info()
-screen_width = screen_info.current_w
-screen_height = screen_info.current_h
 
-# Create the screen
-screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
-pygame.display.set_caption("Scrolling Text")
-
-# Text settings
-font_size = 100
-font = pygame.font.Font(None, font_size)
-text = "Hi! I'm at another club right now but feel free to sign up!"
-
-# Calculate the initial text position
-text_surface = font.render(text, True, (255, 255, 255))
-text_width, text_height = text_surface.get_size()
-x = screen_width
-
-# Color settings
-bg_color = (0, 0, 0)
-text_color = (255, 255, 255)
-bg_increment = 1
-text_increment = 1
-
-clock = pygame.time.Clock()
-
-running = True
-while running:
+def shouldQuit():
+    # Only a window-close request ends the program; no key exits it on purpose
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            return True
+    return False
 
-    # Change background color from black to white and vice versa
-    bg_color = (bg_color[0] + bg_increment, bg_color[1] + bg_increment, bg_color[2] + bg_increment)
-    if bg_color[0] >= 255:
-        bg_increment = -1
-    elif bg_color[0] <= 0:
-        bg_increment = 1
 
-    # Change text color from white to black and vice versa
-    text_color = (text_color[0] - text_increment, text_color[1] - text_increment, text_color[2] - text_increment)
-    if text_color[0] <= 0:
-        text_increment = -1
-    elif text_color[0] >= 255:
-        text_increment = 1
+def advanceBrightness(brightness, fadeDirection, elapsedSeconds):
+    # Bounce the background brightness between black (0) and white (255)
+    brightness += fadeDirection * FADE_SPEED * elapsedSeconds
+    if brightness >= 255:
+        brightness = 255
+        fadeDirection = -1
+    elif brightness <= 0:
+        brightness = 0
+        fadeDirection = 1
+    return brightness, fadeDirection
 
-    screen.fill(bg_color)
 
-    # Draw the text in the center of the screen
-    y = (screen_height - text_height) // 2
-    text_surface = font.render(text, True, text_color)
-    screen.blit(text_surface, (x, y))
+def drawFrame(screen, font, textX, brightness):
+    # Text is always the inverse shade of the background
+    backgroundShade = int(brightness)
+    textShade = 255 - backgroundShade
+    backgroundColor = (backgroundShade, backgroundShade, backgroundShade)
+    textColor = (textShade, textShade, textShade)
 
-    x -= 2  # Adjust the scrolling speed here for smoother movement
+    textSurface = font.render(MESSAGE, True, textColor)
+    textY = (screen.get_height() - textSurface.get_height()) // 2
 
-    if x + text_width <= 0:
-        x = screen_width
-
+    screen.fill(backgroundColor)
+    screen.blit(textSurface, (int(textX), textY))
     pygame.display.flip()
-    clock.tick(60)
 
-pygame.quit()
-sys.exit()
+
+def main():
+    pygame.init()
+
+    # (0, 0) makes pygame use the current desktop resolution
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    pygame.display.set_caption("Scrolling Text")
+    pygame.mouse.set_visible(False)
+
+    font = pygame.font.Font(None, FONT_SIZE)
+    textWidth = font.size(MESSAGE)[0]
+    screenWidth = screen.get_width()
+
+    # Text starts just off the right edge and scrolls left
+    textX = screenWidth
+    brightness = 0
+    fadeDirection = 1
+    clock = pygame.time.Clock()
+
+    while not shouldQuit():
+        # Frame-rate independent timing keeps speed consistent on slow machines
+        elapsedSeconds = clock.tick(FRAME_RATE) / 1000
+
+        brightness, fadeDirection = advanceBrightness(brightness, fadeDirection, elapsedSeconds)
+
+        textX -= SCROLL_SPEED * elapsedSeconds
+        if textX + textWidth <= 0:
+            textX = screenWidth
+
+        drawFrame(screen, font, textX, brightness)
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()
